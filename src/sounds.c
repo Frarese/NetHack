@@ -7,6 +7,7 @@
 static boolean mon_is_gecko(struct monst *);
 static int domonnoise(struct monst *);
 static int dochat(void);
+static int dotips(struct monst *);
 static struct monst *responsive_mon_at(int, int);
 static int mon_in_room(struct monst *, int);
 
@@ -840,6 +841,12 @@ domonnoise(register struct monst* mtmp)
             }
             break;
         }
+    case MS_TIP: /* demon's tips*/
+        if(mtmp->mpeaceful)
+            dotips(mtmp);
+        else
+            pline_msg = "is disgusted by your momentum";
+        break;
         /*FALLTHRU*/
     case MS_HUMANOID:
         if (!mtmp->mpeaceful) {
@@ -1051,6 +1058,81 @@ domonnoise(register struct monst* mtmp)
 }
 
 RESTORE_WARNING_FORMAT_NONLITERAL
+
+/* Laplace's demon tips about the level's enemies or items
+ Since the demon knows everything about the state of the universe,
+ the items and momster in the level are an easy thing to spoil to the player*/
+int
+dotips(struct monst *lapl)
+{
+    long umoney;
+    int price = 500;
+    char qbuf[QBUFSZ];
+
+    g.multi = 0;
+    umoney = money_cnt(g.invent);
+
+    if (!lapl) {
+        There("is no one here to listen.");
+        return 0;
+    } else if (!lapl->mpeaceful) {
+        pline("%s doesn't like your momentum.", Monnam(lapl));
+        return 0;
+    } else if (!umoney) {
+        You("have no gold.");
+        return 0;
+    }
+
+    Sprintf(qbuf, "\"Do you desire to know something about this universe?\" (%d %s)",
+            price, currency((long) price));
+    switch (yn(qbuf)) {
+    default:
+        return 0;
+    case 'y':
+        if (umoney < (long) price) {
+            You("don't even have enough gold for that!");
+            return 0;
+        }
+        break;
+    }
+
+    money2mon(lapl, (long) price);
+    g.context.botl = 1;
+
+    long bp = 0;
+    if (rn2(99) < 50) {
+      struct obj *otmp;
+      struct obj *obst;
+      /*Fair selection of a random object*/
+      for(otmp = fobj; otmp; otmp = otmp->nobj){
+          bp++;
+          if (rn2(99) < (100/bp)){
+              obst = otmp;
+          }
+      }
+      if (obst)
+          pline("%s says: \"You'll find %s out there!\".", Monnam(lapl), ansimpleoname(obst));
+      else
+          pline("%s says: \"There is nothing out there!\".", Monnam(lapl));
+
+    } else {
+      struct monst *mtmp;
+      struct monst *monst;
+      /*Fair selection of a random monster*/
+     for(mtmp = fmon; mtmp; mtmp = mtmp->nmon){
+       bp++;
+       if (rn2(99) < (100/bp)){
+         monst = mtmp;
+       }
+     }
+
+       if (monst)
+           pline("%s says: \"%s is waiting for you out there!\".", Monnam(lapl), noit_Monnam(monst));
+       else
+           pline("%s says: \"There is no one out there!\".", Monnam(lapl)); //Funny. The Laplace's demon and you are also somewhere else
+    }
+    return 1;
+}
 
 /* #chat command */
 int
